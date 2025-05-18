@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Intake Tracker</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script>tailwind.config={theme:{extend:{colors:{primary:'#3b82f6',secondary:'#60a5fa'},borderRadius:{'none':'0px','sm':'4px',DEFAULT:'8px','md':'12px','lg':'16px','xl':'20px','2xl':'24px','3xl':'32px','full':'9999px','button':'8px'}}}}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+    <style>
+        :where([class^="ri-"])::before { content: "\f3c2"; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+        }
+        .progress-circle {
+            position: relative;
+            width: 200px;
+            height: 200px;
+        }
+        .progress-circle-bg {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 15;
+        }
+        .progress-circle-value {
+            fill: none;
+            stroke: url(#blue-gradient);
+            stroke-width: 15;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: center;
+            transition: stroke-dasharray 0.5s ease;
+        }
+        .cup-button {
+            transition: all 0.2s ease;
+        }
+        .cup-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .custom-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+        .custom-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .switch-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e7eb;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .switch-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .switch-slider {
+            background-color: #3b82f6;
+        }
+        input:checked + .switch-slider:before {
+            transform: translateX(24px);
+        }
+        .tab-active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .tab-inactive {
+            background-color: white;
+            color: #4b5563;
+        }
+        @media (max-width: 768px) {
+            .progress-circle {
+                width: 160px;
+                height: 160px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen max-w-6xl mx-auto px-4 py-8">
+<!-- Header -->
+        <header class="flex items-center justify-between mb-8">
+            <div class="flex items-center">
+                <div class="w-10 h-10 flex items-center justify-center text-primary mr-3">
+                    <i class="ri-water-flash-line ri-2x"></i>
+                </div>
+                <h1 class="text-2xl md:text-3xl font-bold text-gray-800">Water Intake Tracker</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                    <div class="w-10 h-10 flex items-center justify-center">
+                        <i class="ri-notification-3-line ri-lg"></i>
+                    </div>
+                </button>
+                <button class="text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                    <div class="w-10 h-10 flex items-center justify-center">
+                        <i class="ri-settings-3-line ri-lg"></i>
+                    </div>
+                </button>
+                <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white cursor-pointer">
+                    <span class="font-medium">KP</span>
+                </div>
+            </div>
+        </header>
+
+<!-- Tab Navigation -->
+        <div class="flex justify-center mb-8">
+            <div class="inline-flex bg-gray-100 p-1 rounded-full">
+                <button id="tab-dashboard" class="px-4 py-2 rounded-full tab-active whitespace-nowrap !rounded-button">Dashboard</button>
+                <button id="tab-history" class="px-4 py-2 rounded-full tab-inactive whitespace-nowrap !rounded-button">History</button>
+                <button id="tab-stats" class="px-4 py-2 rounded-full tab-inactive whitespace-nowrap !rounded-button">Statistics</button>
+            </div>
+        </div>
+
+<!-- Dashboard Tab Content -->
+        <div id="content-dashboard" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="flex flex-col items-center">
+<!-- Progress Circle -->
+                <div class="progress-circle mb-8">
+                    <svg width="200" height="200" viewBox="0 0 200 200">
+                        <defs>
+                            <linearGradient id="blue-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#60a5fa" />
+                                <stop offset="100%" stop-color="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                        <circle class="progress-circle-bg" cx="100" cy="100" r="85" />
+                        <circle class="progress-circle-value" cx="100" cy="100" r="85" stroke-dasharray="178 534" />
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-2xl md:text-3xl font-bold text-gray-800">1.2L / 2.5L</span>
+                        <span class="text-base md:text-lg text-gray-500">48% completed</span>
+                    </div>
+                </div>
+<!-- Quick Add Buttons -->
+                <div class="w-full">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Quick Add</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-cup-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">100 ml</span>
+                        </button>
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-goblet-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">200 ml</span>
+                        </button>
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-glass-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">250 ml</span>
+                        </button>
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-beer-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">330 ml</span>
+                        </button>
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-water-cup-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">500 ml</span>
+                        </button>
+                        <button class="cup-button bg-white rounded p-4 flex flex-col items-center border border-gray-200 !rounded-button cursor-pointer">
+                            <div class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center text-primary mb-2">
+                                <i class="ri-bottle-line ri-2x"></i>
+                            </div>
+                            <span class="text-base md:text-lg font-medium text-gray-800 whitespace-nowrap">750 ml</span>
+                        </button>
+                    </div>
+                </div>
+
+<!-- Daily Goal Setting -->
+                <div class="w-full mt-8 bg-white rounded-lg p-6 border border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Daily Goal</h2>
+                        <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                            <div class="w-8 h-8 flex items-center justify-center">
+                                <i class="ri-edit-line ri-lg"></i>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <input type="number" value="2500" class="w-full px-4 py-2 border border-gray-300 rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-600 font-medium">ml</span>
+                            <label class="custom-switch">
+                                <input type="checkbox">
+                                <span class="switch-slider"></span>
+                            </label>
+                            <span class="text-gray-600 font-medium">oz</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+<!-- Today's Log -->
+                <div class="bg-white rounded-lg p-6 border border-gray-200 h-full">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-semibold text-gray-800">Today's Log</h2>
+                        <span class="text-gray-500">May 18, 2025</span>
+                    </div>
+                    <div class="overflow-y-auto max-h-[400px] md:max-h-[500px] pr-2">
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                    <span class="text-gray-800 font-medium">9:15 AM</span>
+                                    <div class="flex items-center text-gray-600">
+                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                            <i class="ri-cup-line"></i>
+                                        </div>
+                                        <span>250 ml</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-red-500 transition-colors !rounded-button cursor-pointer">
+                                    <div class="w-8 h-8 flex items-center justify-center">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                    <span class="text-gray-800 font-medium">10:30 AM</span>
+                                    <div class="flex items-center text-gray-600">
+                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                            <i class="ri-water-cup-line"></i>
+                                        </div>
+                                        <span>500 ml</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-red-500 transition-colors !rounded-button cursor-pointer">
+                                    <div class="w-8 h-8 flex items-center justify-center">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                    <span class="text-gray-800 font-medium">12:45 PM</span>
+                                    <div class="flex items-center text-gray-600">
+                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                            <i class="ri-glass-line"></i>
+                                        </div>
+                                        <span>250 ml</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-red-500 transition-colors !rounded-button cursor-pointer">
+                                    <div class="w-8 h-8 flex items-center justify-center">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div>
+                                    <span class="text-gray-800 font-medium">2:20 PM</span>
+                                    <div class="flex items-center text-gray-600">
+                                        <div class="w-5 h-5 flex items-center justify-center mr-1">
+                                            <i class="ri-cup-line"></i>
+                                        </div>
+                                        <span>200 ml</span>
+                                    </div>
+                                </div>
+                                <button class="text-gray-400 hover:text-red-500 transition-colors !rounded-button cursor-pointer">
+                                    <div class="w-8 h-8 flex items-center justify-center">
+                                        <i class="ri-delete-bin-line"></i>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-700 font-medium">Total</span>
+                            <span class="text-xl font-bold text-gray-800">1.2 Liters</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-gray-700 font-medium">Remaining</span>
+                            <span class="text-lg font-medium text-primary">1.3 Liters</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<!-- History Tab Content -->
+        <div id="content-history" class="hidden">
+            <div class="bg-white rounded-lg p-6 border border-gray-200 mb-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 md:mb-0">Water Intake History</h2>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i class="ri-calendar-line text-gray-400"></i>
+                            </div>
+                            <input type="date" class="pl-10 pr-4 py-2 border border-gray-300 rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" value="2025-05-11">
+                        </div>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <i class="ri-calendar-line text-gray-400"></i>
+                            </div>
+                            <input type="date" class="pl-10 pr-4 py-2 border border-gray-300 rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary" value="2025-05-18">
+                        </div>
+                        <button class="bg-primary text-white px-4 py-2 rounded !rounded-button whitespace-nowrap cursor-pointer">Apply Filter</button>
+                    </div>
+                </div>
+                <div id="history-chart" class="w-full h-[400px]"></div>
+            </div>
+            <div class="bg-white rounded-lg p-6 border border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Detailed History</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Intake</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goal</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Achievement</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">May 18, 2025</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">1.2 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.5 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-primary h-2.5 rounded-full" style="width: 48%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">48%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                                        <div class="w-8 h-8 flex items-center justify-center">
+                                            <i class="ri-eye-line"></i>
+                                        </div>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">May 17, 2025</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.3 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.5 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-primary h-2.5 rounded-full" style="width: 92%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">92%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                                        <div class="w-8 h-8 flex items-center justify-center">
+                                            <i class="ri-eye-line"></i>
+                                        </div>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">May 16, 2025</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.7 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.5 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-green-500 h-2.5 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">108%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                                        <div class="w-8 h-8 flex items-center justify-center">
+                                            <i class="ri-eye-line"></i>
+                                        </div>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">May 15, 2025</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">1.8 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.5 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-primary h-2.5 rounded-full" style="width: 72%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">72%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                                        <div class="w-8 h-8 flex items-center justify-center">
+                                            <i class="ri-eye-line"></i>
+                                        </div>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">May 14, 2025</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.1 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">2.5 L</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                        <div class="bg-primary h-2.5 rounded-full" style="width: 84%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500">84%</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <button class="text-primary hover:text-primary/80 !rounded-button cursor-pointer">
+                                        <div class="w-8 h-8 flex items-center justify-center">
+                                            <i class="ri-eye-line"></i>
+                                        </div>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Tab Content -->
+        <div id="content-stats" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white rounded-lg p-6 border border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Weekly Overview</h2>
+                    <div id="weekly-chart" class="w-full h-[300px]"></div>
+                </div>
+                <div class="bg-white rounded-lg p-6 border border-gray-200">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Daily Distribution</h2>
+                    <div id="distribution-chart" class="w-full h-[300px]"></div>
+                </div>
+                <div class="bg-white rounded-lg p-6 border border-gray-200 md:col-span-2">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Monthly Progress</h2>
+                    <div id="monthly-chart" class="w-full h-[300px]"></div>
+                </div>
+                <div class="bg-white rounded-lg p-6 border border-gray-200 md:col-span-2">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Insights</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-10 h-10 flex items-center justify-center text-primary mr-3">
+                                    <i class="ri-award-line ri-2x"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">Best Day</h3>
+                            </div>
+                            <p class="text-gray-600">Your best day was <span class="font-medium text-gray-800">May 16</span> with <span class="font-medium text-gray-800">2.7L</span> of water intake.</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-10 h-10 flex items-center justify-center text-primary mr-3">
+                                    <i class="ri-time-line ri-2x"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">Peak Hours</h3>
+                            </div>
+                            <p class="text-gray-600">You drink most water between <span class="font-medium text-gray-800">9 AM - 11 AM</span> and <span class="font-medium text-gray-800">2 PM - 4 PM</span>.</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-10 h-10 flex items-center justify-center text-primary mr-3">
+                                    <i class="ri-calendar-check-line ri-2x"></i>
+                                </div>
+                                <h3 class="text-lg font-semibold text-gray-800">Goal Achievement</h3>
+                            </div>
+                            <p class="text-gray-600">You've reached your daily goal <span class="font-medium text-gray-800">3 out of 7 days</span> this week.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching functionality
+            const tabs = {
+                dashboard: document.getElementById('tab-dashboard'),
+                history: document.getElementById('tab-history'),
+                stats: document.getElementById('tab-stats')
+            };
+            
+            const contents = {
+                dashboard: document.getElementById('content-dashboard'),
+                history: document.getElementById('content-history'),
+                stats: document.getElementById('content-stats')
+            };
+            
+            function switchTab(activeTab) {
+                // Update tab buttons
+                Object.keys(tabs).forEach(tab => {
+                    if (tab === activeTab) {
+                        tabs[tab].classList.remove('tab-inactive');
+                        tabs[tab].classList.add('tab-active');
+                        contents[tab].classList.remove('hidden');
+                    } else {
+                        tabs[tab].classList.remove('tab-active');
+                        tabs[tab].classList.add('tab-inactive');
+                        contents[tab].classList.add('hidden');
+                    }
+                });
+                
+                // Initialize charts if needed
+                if (activeTab === 'history' && !historyChartInitialized) {
+                    initHistoryChart();
+                    historyChartInitialized = true;
+                }
+                
+                if (activeTab === 'stats' && !statsChartsInitialized) {
+                    initWeeklyChart();
+                    initDistributionChart();
+                    initMonthlyChart();
+                    statsChartsInitialized = true;
+                }
+            }
+            
+            tabs.dashboard.addEventListener('click', () => switchTab('dashboard'));
+            tabs.history.addEventListener('click', () => switchTab('history'));
+            tabs.stats.addEventListener('click', () => switchTab('stats'));
+            
+            // Cup buttons functionality
+            const cupButtons = document.querySelectorAll('.cup-button');
+            cupButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Get the amount from the button text
+                    const amountText = this.querySelector('span').textContent;
+                    const amount = parseInt(amountText);
+                    
+                    // In a real app, this would update the water intake
+                    console.log(`Added ${amount} ml of water`);
+                    
+                    // For demo purposes, let's update the progress
+                    updateProgress(amount);
+                });
+            });
+            
+            // Toggle switch functionality
+            const unitToggle = document.querySelector('.custom-switch input');
+            unitToggle.addEventListener('change', function() {
+                // In a real app, this would convert between ml and oz
+                console.log(`Unit changed to ${this.checked ? 'oz' : 'ml'}`);
+            });
+            
+            // Progress update function (simplified for demo)
+            function updateProgress(addedAmount) {
+                const progressCircle = document.querySelector('.progress-circle-value');
+                const currentText = document.querySelector('.progress-circle .text-2xl, .progress-circle .text-3xl');
+                
+                // Parse current values
+                const [current, total] = currentText.textContent.split('/').map(val => {
+                    return parseFloat(val.trim().replace('L', ''));
+                });
+                
+                // Calculate new amount (convert ml to L)
+                const newAmount = current + (addedAmount / 1000);
+                const percentage = Math.min(100, Math.round((newAmount / total) * 100));
+                
+                // Update the text
+                currentText.textContent = `${newAmount.toFixed(1)}L / ${total.toFixed(1)}L`;
+                document.querySelector('.progress-circle .text-base, .progress-circle .text-lg').textContent = `${percentage}% completed`;
+                
+                // Update the circle
+                const circumference = 2 * Math.PI * 85;
+                const dashArray = (percentage / 100) * circumference;
+                progressCircle.style.strokeDasharray = `${dashArray} ${circumference}`;
+            }
+            
+            // Charts initialization flags
+            let historyChartInitialized = false;
+            let statsChartsInitialized = false;
+            
+            // History chart initialization
+            function initHistoryChart() {
+                const historyChart = echarts.init(document.getElementById('history-chart'));
+                const historyOption = {
+                    animation: false,
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        textStyle: {
+                            color: '#1f2937'
+                        }
+                    },
+                    grid: {
+                        top: 20,
+                        right: 20,
+                        bottom: 30,
+                        left: 50
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['May 12', 'May 13', 'May 14', 'May 15', 'May 16', 'May 17', 'May 18'],
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Liters',
+                        nameTextStyle: {
+                            color: '#1f2937'
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#f3f4f6'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Water Intake',
+                            type: 'line',
+                            data: [1.9, 2.0, 2.1, 1.8, 2.7, 2.3, 1.2],
+                            smooth: true,
+                            symbol: 'none',
+                            lineStyle: {
+                                width: 3,
+                                color: 'rgba(87, 181, 231, 1)'
+                            },
+                            areaStyle: {
+                                color: {
+                                    type: 'linear',
+                                    x: 0,
+                                    y: 0,
+                                    x2: 0,
+                                    y2: 1,
+                                    colorStops: [{
+                                        offset: 0,
+                                        color: 'rgba(87, 181, 231, 0.2)'
+                                    }, {
+                                        offset: 1,
+                                        color: 'rgba(87, 181, 231, 0.05)'
+                                    }]
+                                }
+                            }
+                        },
+                        {
+                            name: 'Goal',
+                            type: 'line',
+                            data: [2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5],
+                            lineStyle: {
+                                width: 2,
+                                type: 'dashed',
+                                color: 'rgba(251, 191, 114, 1)'
+                            },
+                            symbol: 'none'
+                        }
+                    ]
+                };
+                historyChart.setOption(historyOption);
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    historyChart.resize();
+                });
+            }
+            
+            // Weekly chart initialization
+            function initWeeklyChart() {
+                const weeklyChart = echarts.init(document.getElementById('weekly-chart'));
+                const weeklyOption = {
+                    animation: false,
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        textStyle: {
+                            color: '#1f2937'
+                        }
+                    },
+                    grid: {
+                        top: 20,
+                        right: 20,
+                        bottom: 30,
+                        left: 50
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Liters',
+                        nameTextStyle: {
+                            color: '#1f2937'
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#f3f4f6'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Water Intake',
+                            type: 'bar',
+                            data: [2.1, 1.8, 2.7, 2.3, 1.9, 2.0, 1.2],
+                            itemStyle: {
+                                color: 'rgba(87, 181, 231, 1)',
+                                borderRadius: [4, 4, 0, 0]
+                            }
+                        }
+                    ]
+                };
+                weeklyChart.setOption(weeklyOption);
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    weeklyChart.resize();
+                });
+            }
+            
+            // Distribution chart initialization
+            function initDistributionChart() {
+                const distributionChart = echarts.init(document.getElementById('distribution-chart'));
+                const distributionOption = {
+                    animation: false,
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        textStyle: {
+                            color: '#1f2937'
+                        }
+                    },
+                    legend: {
+                        orient: 'vertical',
+                        right: 10,
+                        top: 'center',
+                        textStyle: {
+                            color: '#1f2937'
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Time Distribution',
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: {
+                                borderRadius: 8,
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            },
+                            label: {
+                                show: false
+                            },
+                            emphasis: {
+                                label: {
+                                    show: false
+                                }
+                            },
+                            data: [
+                                { value: 35, name: 'Morning (6-12)' },
+                                { value: 30, name: 'Afternoon (12-18)' },
+                                { value: 25, name: 'Evening (18-22)' },
+                                { value: 10, name: 'Night (22-6)' }
+                            ],
+                            color: [
+                                'rgba(87, 181, 231, 1)',
+                                'rgba(141, 211, 199, 1)',
+                                'rgba(251, 191, 114, 1)',
+                                'rgba(252, 141, 98, 1)'
+                            ]
+                        }
+                    ]
+                };
+                distributionChart.setOption(distributionOption);
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    distributionChart.resize();
+                });
+            }
+            
+            // Monthly chart initialization
+            function initMonthlyChart() {
+                const monthlyChart = echarts.init(document.getElementById('monthly-chart'));
+                const monthlyOption = {
+                    animation: false,
+                    tooltip: {
+                        trigger: 'axis',
+                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                        textStyle: {
+                            color: '#1f2937'
+                        }
+                    },
+                    grid: {
+                        top: 20,
+                        right: 20,
+                        bottom: 30,
+                        left: 50
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        }
+                    },
+                    yAxis: {
+                        type: 'value',
+                        name: 'Avg. Liters/Day',
+                        nameTextStyle: {
+                            color: '#1f2937'
+                        },
+                        axisLine: {
+                            lineStyle: {
+                                color: '#e5e7eb'
+                            }
+                        },
+                        axisLabel: {
+                            color: '#1f2937'
+                        },
+                        splitLine: {
+                            lineStyle: {
+                                color: '#f3f4f6'
+                            }
+                        }
+                    },
+                    series: [
+                        {
+                            name: 'Average Daily Intake',
+                            type: 'line',
+                            data: [1.8, 2.1, 2.3, 2.0],
+                            smooth: true,
+                            symbol: 'circle',
+                            symbolSize: 8,
+                            lineStyle: {
+                                width: 3,
+                                color: 'rgba(87, 181, 231, 1)'
+                            },
+                            itemStyle: {
+                                color: 'rgba(87, 181, 231, 1)',
+                                borderColor: '#fff',
+                                borderWidth: 2
+                            }
+                        },
+                        {
+                            name: 'Goal',
+                            type: 'line',
+                            data: [2.5, 2.5, 2.5, 2.5],
+                            lineStyle: {
+                                width: 2,
+                                type: 'dashed',
+                                color: 'rgba(251, 191, 114, 1)'
+                            },
+                            symbol: 'none'
+                        }
+                    ]
+                };
+                monthlyChart.setOption(monthlyOption);
+                
+                // Handle window resize
+                window.addEventListener('resize', function() {
+                    monthlyChart.resize();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
